@@ -201,14 +201,14 @@ int main()
         if( abs(nextCheckpointAngle) >= AngleMin )
         {
             //search for the steer direction
-            Point desiredDirection( nextCheckpointX - x, nextCheckpointY - y );
+            Point desiredDirection = Point(nextCheckpointX - x, nextCheckpointY - y );
             desiredDirection = desiredDirection.normalize();
 
             Point currentDirection = desiredDirection;
             currentDirection.rotate( -nextCheckpointAngle );
             currentDirection = currentDirection.normalize();
 
-            Point steeringDirection = ( desiredDirection - currentDirection );
+            Point steeringDirection = desiredDirection - currentDirection;
             steeringDirection = steeringDirection.normalize();
             steeringDirection *= 100;
 
@@ -234,7 +234,7 @@ int main()
             else if( nextCheckpointDist < SlowRadius )
             {
                 //slow down when pod close to checkpoint
-                thrust *= nextCheckpointDist / SlowRadius;
+                thrust *= nextCheckpointDist / (float)SlowRadius;
             }
         }
         cout << nextCheckpointX << " " << nextCheckpointY << " ";
