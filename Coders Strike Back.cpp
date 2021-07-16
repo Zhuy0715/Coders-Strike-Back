@@ -13,88 +13,88 @@ using namespace std;
  **/
 class Point {
 public:
-	int x, y;
+	float x, y;
 
   Point(){
-    x = 0;
-    y = 0;
+    this->x = 0;
+    this->y = 0;
   }
 
-  Point( int x, int y ){
-    x = x;
-    y = y;
+  Point( float x, float y ){
+    this->x = x;
+    this->y = y;
   }
 
   Point( const Point& p ){
-     x = p.x;
-     y = p.y;
+     this->x = p.x;
+     this->y = p.y;
    }
 
 	Point& operator=(const Point& p) {
-		x = p.x;
-		y = p.y;
+		this->x = p.x;
+		this->y = p.y;
 		return *this;
 	}
 
   bool operator==( const Point& p ){
-     return ( x == p.x ) && ( y == p.y );
+     return ( this->x == p.x ) && ( this->y == p.y );
    }
 
   bool operator!=( const Point& p ){
-     return ( x != p.x ) || ( y != p.y );
+     return ( this->x != p.x ) || ( this->y != p.y );
    }
 
 
 	Point operator+(Point& p) {
-		return Point(x + p.x, y + p.y);
+		return Point(this->x + p.x, this->y + p.y);
 	}
 	Point operator-(Point& p) {
-		return Point(x - p.x, y - p.y);
+		return Point(this->x - p.x, this->y - p.y);
 	}
 
 	Point& operator+=(Point& v) {
-		x += v.x;
-		y += v.y;
+		this->x += v.x;
+		this->y += v.y;
 		return *this;
 	}
 	Point& operator-=(Point& v) {
-		x -= v.x;
-		y -= v.y;
+		this->x -= v.x;
+		this->y -= v.y;
 		return *this;
 	}
 
 	Point operator+(double s) {
-		return Point(x + s, y + s);
+		return Point(this->x + s, this->y + s);
 	}
 	Point operator-(double s) {
-		return Point(x - s, y - s);
+		return Point(this->x - s, this->y - s);
 	}
 	Point operator*(double s) {
-		return Point(x * s, y * s);
+		return Point(this->x * s,this->y * s);
 	}
 	Point operator/(double s) {
-		return Point(x / s, y / s);
+		return Point(this->x / s, this->y / s);
 	}
 
 
 	Point& operator+=(double s) {
-		x += s;
-		y += s;
+		this->x += s;
+		this->y += s;
 		return *this;
 	}
 	Point& operator-=(double s) {
-		x -= s;
-		y -= s;
+		this->x -= s;
+		this->y -= s;
 		return *this;
 	}
 	Point& operator*=(double s) {
-		x *= s;
-		y *= s;
+		this->x *= s;
+		this->y *= s;
 		return *this;
 	}
 	Point& operator/=(double s) {
-		x /= s;
-		y /= s;
+		this->x /= s;
+		this->y /= s;
 		return *this;
 	}
 
@@ -102,31 +102,32 @@ public:
 		double radian = angle * PI /180;
 		double cosAngle = cos(radian);
 		double sinAngle = sin(radian);
-		float tx = x * cosAngle - y * sinAngle;
-		float ty = x * sinAngle + y * cosAngle;
-		x = (int) tx;
-		y = (int) ty;
+		float tx = this->x * cosAngle - this->y * sinAngle;
+		float ty = this->x * sinAngle + this->y * cosAngle;
+		this->x =  tx;
+		this->y =  ty;
 	}
 
 	float dist2(Point p){
-		return pow(p.x - x,2)+ pow(p.y - y,2);
+		return pow(p.x - this->x,2)+ pow(p.y - this->y,2);
 	}
 	float dist(Point p){
 		return sqrt(dist2(p));
 	}
   float length(){
-    return sqrt(x*x + y*y);
+    return sqrt(this->x*this->x + this->y*this->y);
   }
-  Point& normalize() {
-    if (length() == 0) return *this;
-		*this *= (1.0 / length());
-		return *this;
+  Point normalize() {
+      if(length()==0){
+          return Point(this->x, this->y);
+      }
+		return Point(this->x/length(), this->y/length());
   }
 
 };
 
 bool checkpointSave(vector<Point>& checkpoints, int nextCheckpointX, int nextCheckpointY){
-    Point newPoint = Point(nextCheckpointX, nextCheckpointY);
+    Point newPoint (nextCheckpointX, nextCheckpointY);
     if(checkpoints.empty()){
       checkpoints.push_back(newPoint);
     }else{
@@ -135,6 +136,7 @@ bool checkpointSave(vector<Point>& checkpoints, int nextCheckpointX, int nextChe
           return true;
         }
         checkpoints.push_back(newPoint);
+
       }
     }
     return false;
@@ -185,11 +187,11 @@ int main()
         //Save the checkpoints and get the maxDistance for boost
         if(!oneLapFinished){
            oneLapFinished = checkpointSave(checkpoints, nextCheckpointX, nextCheckpointY);
-        } else{
-            if(maxDistance==0){
-                maxDistance = getMaxDistancePoint(checkpoints);
-            }
+					 if(maxDistance<nextCheckpointDist){
+	             maxDistance = nextCheckpointDist;
+	         }
         }
+
         // Write an action using cout. DON'T FORGET THE "<< endl"
         // To debug: cerr << "Debug messages..." << endl;
 
@@ -201,19 +203,19 @@ int main()
         if( abs(nextCheckpointAngle) >= AngleMin )
         {
             //search for the steer direction
-            Point desiredDirection = Point(nextCheckpointX - x, nextCheckpointY - y );
-            desiredDirection = desiredDirection.normalize();
+            Point target (nextCheckpointX - x, nextCheckpointY - y );
+            target = target.normalize();
 
-            Point currentDirection = desiredDirection;
-            currentDirection.rotate( -nextCheckpointAngle );
-            currentDirection = currentDirection.normalize();
+            Point position = target;
+            position.rotate( -nextCheckpointAngle );
+            position = position.normalize();
 
-            Point steeringDirection = desiredDirection - currentDirection;
-            steeringDirection = steeringDirection.normalize();
-            steeringDirection *= 100;
+            Point velocity = target - position;
+            velocity = velocity.normalize();
+            velocity *= 100;
 
-            nextCheckpointX += steeringDirection.x;
-            nextCheckpointY += steeringDirection.y;
+            nextCheckpointX += velocity.x;
+            nextCheckpointY += velocity.y;
 
             // slow down when angle too big
             if( abs(nextCheckpointAngle) >= SlowAngle)
@@ -227,7 +229,7 @@ int main()
         }
         else
         {
-            if( !boost && oneLapFinished && nextCheckpointDist + 2000 > maxDistance )
+            if( !boost && oneLapFinished && (nextCheckpointDist + 2000) > maxDistance )
             {
                 boost = true;
             }
