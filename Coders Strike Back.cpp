@@ -615,6 +615,12 @@ int main()
     int step=0;
     while (1)
     {
+      // init value ->
+      // search for the solution randomly ->
+      // play the solution ->
+      // evaluate solution ->
+      // find the best solution ->
+      // convert solution to output
         for (int i=0; i<4; i++)
         {
             UpdateInput(pods[i]);
