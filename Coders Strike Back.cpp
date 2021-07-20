@@ -5,6 +5,11 @@
 #include <cmath>
 #include <float.h>
 #include <stdlib.h>
+#include <cstdint>
+#include <iomanip>
+#include <chrono>
+#include <string>
+#include <vector>
 
 using namespace std;
 #define PI 3.14159265
@@ -12,6 +17,7 @@ using namespace std;
 #define AngleMin 1
 #define SlowAngle 90
 #define SlowRadius 4*600
+#define maxRotation 18
 
 /**
  * Auto-generated code below aims at helping you parse
@@ -58,7 +64,7 @@ using namespace std;
  		return Point(this->x - p.x, this->y - p.y);
  	}
 
- 	Point& operator+=(Point& v) {
+ 	Point& operator+=(const Point& v) {
  		this->x += v.x;
  		this->y += v.y;
  		return *this;
@@ -172,101 +178,64 @@ using namespace std;
      this->speed = Point(vx, vy);
      this->nextCheckPointId = nextCheckPointId;
    }
-   Point InitValue(vector<Point> checkpoints, float maxDistance){
+   void InitValue(vector<Point> checkpoints, float maxDistance){
      int nextCheckpointX = checkpoints[this->nextCheckPointId].x;
      int nextCheckpointY = checkpoints[this->nextCheckPointId].y;
+     Point target(nextCheckpointX,nextCheckpointY);
      int nextCheckpointDist = target.dist(this->position);
      cerr << "dist: " << nextCheckpointDist << endl;
 
-     Point target(nextCheckpointX,nextCheckpointY);
+
      Point destination = target - this->position;
      float rotation = atan2(destination.y, destination.x) *180/PI;
      if(rotation < 0){
          rotation += 360;
      }
-     int nextCheckpointAngle = rotation - this->angle;
-     this->nextCheckpointAngle = nextCheckpointAngle;
-     cerr << "angle: " << nextCheckpointAngle << endl;
-
-     if( abs(nextCheckpointAngle) >= AngleMin )
-     {
-         //search for the steer direction
-         Point target (nextCheckpointX - this->position.x, nextCheckpointY - this->position.y );
-         target = target.normalize();
-
-         Point position = target;
-         position.rotate( -nextCheckpointAngle );
-         position = position.normalize();
-
-         Point velocity = target - position;
-         velocity = velocity.normalize();
-         velocity *= 100;
-
-         nextCheckpointX += velocity.x;
-         nextCheckpointY += velocity.y;
-
-         // slow down when angle too big
-         if( abs(nextCheckpointAngle) >= SlowAngle)
-         {
-             this->thrust = 0;
-         }
-         else if( nextCheckpointDist < SlowRadius )
-         {
-             this->thrust *= 1 - abs(nextCheckpointAngle)/(float)SlowAngle;
-         }
-     }
-     else
-     {
-         if( !boost && (nextCheckpointDist + 2000) > maxDistance )
-         {
-             this->boost = true;
-         }
-         else if( nextCheckpointDist < SlowRadius )
-         {
-             //slow down when pod close to checkpoint
-             this->thrust *= nextCheckpointDist / (float)SlowRadius;
-         }
-     }
-     return Point(nextCheckpointX, nextCheckpointY);
-   }
-   void Rotate(float angle){
-     this->angle = (this->angle + angle)%360;
-   }
-
-   void Accelerate(Point target){
-     if(!this->shield || !this->shieldActive){
-       Point direction(cos(this->angle*PI/180), sin(this->angle*PI/180));
-       if(this->boost && this->boostActive){
-         this->speed += direction*500;
-       }else{
-         this->speed += this->thrust*direction;
-       }
-     }
-   }
-   void Move(vector<Pod>& pods, vector<Point> checkpoints, int checkpointCount){
-     float currentTime = 0.0;
-     float maxTime = 1.0;
-     while(currentTime<maxTime){
-       int indexi = 5;
-       int indexj = 5;
-       float minTime = CollisionTime(pods, currentTime, maxTime, indexi, indexj);
-       this->position += minTime * this->speed;
-       if(this->position.dist2(checkpoints[this->nextCheckPointId])<600*600){
-         this->nextCheckPointId = (this->nextCheckPointId +1)%checkpointCount;
-         this->checkpointsPassed+=1;
-       }
-       if(indexi!=5 && indexj!=5){
-         Rebound(pods[indexi], pods[indexj]);
-       }
-       currentTime += minTime;
-     }
-   }
-   void Friction(){
-     this->speed *= 0.85;
-   }
-   void Round(){
-     this->speed = Point((int) this->speed.x, (int) this->speed.y);
-     this->position = Point(round(this->position.x), round(this->position.y));
+     this-> angle = rotation;
+     // int nextCheckpointAngle = rotation - this->angle;
+     // this->nextCheckpointAngle = nextCheckpointAngle;
+     // cerr << "angle: " << nextCheckpointAngle << endl;
+     //
+     // if( abs(nextCheckpointAngle) >= AngleMin )
+     // {
+     //     //search for the steer direction
+     //     Point target (nextCheckpointX - this->position.x, nextCheckpointY - this->position.y );
+     //     target = target.normalize();
+     //
+     //     Point position = target;
+     //     position.rotate( -nextCheckpointAngle );
+     //     position = position.normalize();
+     //
+     //     Point velocity = target - position;
+     //     velocity = velocity.normalize();
+     //     velocity *= 100;
+     //
+     //     nextCheckpointX += velocity.x;
+     //     nextCheckpointY += velocity.y;
+     //
+     //     // slow down when angle too big
+     //     if( abs(nextCheckpointAngle) >= SlowAngle)
+     //     {
+     //         this->thrust = 0;
+     //     }
+     //     else if( nextCheckpointDist < SlowRadius )
+     //     {
+     //         this->thrust *= 1 - abs(nextCheckpointAngle)/(float)SlowAngle;
+     //     }
+     // }
+     // else
+     // {
+     //     if( !boost && (nextCheckpointDist + 2000) > maxDistance )
+     //     {
+     //         this->boost = true;
+     //     }
+     //     else if( nextCheckpointDist < SlowRadius )
+     //     {
+     //         //slow down when pod close to checkpoint
+     //         this->thrust *= nextCheckpointDist / (float)SlowRadius;
+     //     }
+     // }
+     // return Point(nextCheckpointX, nextCheckpointY);
    }
 
  };
@@ -291,61 +260,29 @@ public:
     }else if(i<10){
       this->thrust = rand()%100;
     }else if(i<11){
-      this->shield = true;
+      this->shield = !this->shield;
     }else{
-      this->boost = true;
+      this->boost = !this->boost;
     }
   }
 
 };
 struct Solution{
-  Movement pod1 = Movement();
-  Movement pod2 = Movement();
+  std::vector<std::vector<Movement>> podsMovement;
   int score = 0;
+
+  std::vector<Movement>& operator[](size_t m)   { return podsMovement[m]; } //0<=m<2
 };
-class Simulation{
-public:
-  std::vector<Solution> solutions;
-  int simulationTurns=6;
-
-  Simulation(){
-    solutions.reserve(simulationTurns);
-  }
-  Simulation(int simulationTurns){
-    this->simulationTurns = simulationTurns;
-    solutions.reserve(simulationTurns);
-  }
-
-  Solution& simulate(std::vector<Pod>& pods, std::vector<Point> checkpoints, int allCheckpoints){
-    for(int i=0; i< simulationTurns; i++){
-      this->solutions[i].pod1.Randomize();
-      this->solutions[i].pod2.Randomize();
-    }
-    scores.reserve(simulationTurns);
-    vector<Pod> podsCopy = pods;
-    for(int i=0;i<simulationTurns;i++){
-      PlayOneTurn(podsCopy, checkpoints);
-      int score = EvaluateScore(podsCopy, checkpoints, allCheckpoints);
-      this->solutions[i].score = score;
-    }
-    std::sort( this->solutions.begin(), this->solutions.end(),
-               [](const Solution& a, const Solution& b) { return a.score > b.score; }
-             );
-    return this->solutions[0];
-
-  }
-
-};
- float CollisionTime(vector<Pod>& pods, float currentTime, float maxTime, int& indexi, int& indexj){
+float CollisionTime(vector<Pod>& pods, float currentTime, float maxTime, int& indexi, int& indexj){
    float minTime = maxTime - currentTime;
    for(int i =0; i<4; i++){
      for(int j=i+1;j<4;j++){
-       Point distance = pod.position - this->position;
-       Point differenceSpeed = pod.speed - this->speed;
+       Point distance = pods[i].position - pods[j].position;
+       Point differenceSpeed = pods[i].speed - pods[j].speed;
        float a = differenceSpeed.dot();
        if(a>=0){
          float b = -2*differenceSpeed.dot(distance);
-         float c = distance.dot() - 4*this->radius*this->radius;
+         float c = distance.dot() - 4*pods[j].radius*pods[j].radius;
          float delta = b*b - 4*a*c;
          if(delta >= 0){
            float t = (b-sqrt(delta))/(2*a);
@@ -360,8 +297,7 @@ public:
    }
    return minTime;
  }
-
- void Rebound(Pod& pod1, Pod& pod2){
+void Rebound(Pod& pod1, Pod& pod2){
    if(pod1.shield){
      pod1.mass = 10;
    }
@@ -376,11 +312,83 @@ public:
    float m = (pod1.mass*pod2.mass)/(pod1.mass + pod2.mass);
    float k = vs.dot(vp);
 
-   float impulse = clamp(-2*m*k, -120, 120);
+   float impulse = clamp(-2*m*k, -120.0f, 120.0f);
 
-   pod1.speed += (-impulse/pod1.mass)* vp;
-   pod2.speed += (impulse/pod2.mass)* vp;
+   pod1.speed +=  vp * (-impulse/pod1.mass);
+   pod2.speed +=  vp * (impulse/pod2.mass);
  }
+ void Rotate(std::vector<Pod> pods, std::vector<Movement> m){
+   for (int i=0; i<2; i++)
+   {
+     pods[i].angle = ((int)(pods[i].angle + m[i].rotation))%360;
+   }
+ }
+
+ void Accelerate(std::vector<Pod> pods, std::vector<Movement> m){
+   for (int i=0; i<2; i++)
+   {
+     if(!m[i].shield || !pods[i].shieldActive){
+       Point direction(cos(pods[i].angle*PI/180), sin(pods[i].angle*PI/180));
+       if(m[i].boost && pods[i].boostActive){
+         pods[i].speed += direction*500;
+         pods[i].boost = true;
+         pods[i].boostActive = false;
+       }else{
+         pods[i].speed += direction * m[i].thrust;
+       }
+     }else{
+       pods[i].shield = true;
+       pods[i].shieldActive = false;
+     }
+   }
+ }
+ void Move(vector<Pod>& pods, vector<Point> checkpoints, int checkpointCount){
+   float currentTime = 0.0;
+   float maxTime = 1.0;
+   while(currentTime<maxTime){
+     int indexi = 5;
+     int indexj = 5;
+     float minTime = CollisionTime(pods, currentTime, maxTime, indexi, indexj);
+     for(int i=0;i<4;i++){
+       pods[i].position += (pods[i].speed * minTime) ;
+       if(pods[i].position.dist2(checkpoints[pods[i].nextCheckPointId])<600*600){
+         pods[i].nextCheckPointId = (pods[i].nextCheckPointId +1)%checkpointCount;
+         pods[i].checkpointsPassed+=1;
+       }
+     }
+     if(indexi!=5 && indexj!=5){
+       Rebound(pods[indexi], pods[indexj]);
+     }
+     currentTime += minTime;
+   }
+ }
+ void Friction(std::vector<Pod> pods){
+   for(int i =0; i<4;i++){
+     pods[i].speed *= 0.85;
+   }
+ }
+ void Round(std::vector<Pod> pods){
+   for(int i=0;i<4;i++){
+     pods[i].speed = Point((int) pods[i].speed.x, (int) pods[i].speed.y);
+     pods[i].position = Point(round(pods[i].position.x), round(pods[i].position.y));
+   }
+
+ }
+
+void PlayOneTurn(vector<Pod>& pods, vector<Point>& checkpoints, int checkpointCount, std::vector<Movement> Movement){
+    //rotate
+    Rotate(pods, Movement);
+    //accurate
+    Accelerate(pods, Movement);
+    //move
+    Move(pods, checkpoints, checkpointCount);
+    //Friction
+    Friction(pods);
+    //end
+    Round(pods);
+}
+
+
 
  double getMaxDistancePoint(vector<Point> checkpoints){
      double distance = (checkpoints.end()-1)->dist2(*checkpoints.begin());
@@ -393,35 +401,20 @@ public:
      }
      return maxDistance;
  }
-
- void PlayOneTurn(vector<Pod>& pods, vector<Point>& checkpoints, int checkpointCount){
-   for(int i=0; i<2;i++){
-     //rotate
-     if(pods[i].nextCheckpointAngle>18){
-       pods[i].rotate(18);
-     }else if(pods[i].nextCheckpointAngle<-18){
-       pods[i].rotate(-18);
-     }else{
-       pods[i].rotate(pods[i].nextCheckpointAngle);
-     }
-     //accurate
-     pods[i].Accelerate(checkpoints[pods[i].nextCheckPointId]);
-     //move
-     pods[i].Move(pods, checkpoints, checkpointCount);
-     //Friction
-     pods[i].Friction();
-     //end
-     pods[i].Round();
-   }
- }
- int EvaluateScore(vector<Pod> pods, vector<Point> checkpoints, int allCheckpoints){
+ auto distanceScore(Pod& p, vector<Point> checkpoints)
+ {
+     int coefficient = 30000;
+     int distance = p.position.dist(checkpoints[p.nextCheckPointId]);
+     return coefficient*p.checkpointsPassed - distance;
+ };
+ double EvaluateScore(vector<Pod> pods, vector<Point> checkpoints, int allCheckpoints){
    for(Pod& p : pods){
      p.score = distanceScore(p, checkpoints);
    }
 
    int AvancePodIndex = (pods[0].score > pods[1].score) ? 0 : 1;
-   Pod& AvancePod = pods[firstPodIndex];
-   Pod& BotherPod = pods[1-firstPodIndex];
+   Pod& AvancePod = pods[AvancePodIndex];
+   Pod& BotherPod = pods[1-AvancePodIndex];
 
    Pod& opponent = (pods[2].score > pods[3].score) ? pods[2] : pods[3];
 
@@ -435,14 +428,9 @@ public:
 
    return scoreDifference;
  }
- auto distanceScore(Pod& p, vector<Point> checkpoints)
- {
-     int coefficient = 30000;
-     int distance = dist(p.position, checkpoints[p.nextCheckPointId]);
-     return coefficient*p.checkpointsPassed - distance;
- };
+
  void UpdateInput(std::vector<Pod>& pods){
-   for (int i = 0; i < 2; i++) {
+   for (int i = 0; i < 4; i++) {
        int x; // x position of your pod
        int y; // y position of your pod
        int vx; // x speed of your pod
@@ -458,46 +446,30 @@ public:
        }
        pods[i].nextCheckPointId = nextCheckPointId;
    }
-   for (int i = 0; i < 2; i++) {
-       int x2; // x position of the opponent's pod
-       int y2; // y position of the opponent's pod
-       int vx2; // x speed of the opponent's pod
-       int vy2; // y speed of the opponent's pod
-       int angle2; // angle of the opponent's pod
-       int nextCheckPointId2; // next check point id of the opponent's pod
-       cin >> x2 >> y2 >> vx2 >> vy2 >> angle2 >> nextCheckPointId2; cin.ignore();
-       pods[i+2].position = Point(x2,y2);
-       pods[i+2].speed = Point(vx2,vy2);
-       pods[i+2].angle = angle2;
-       if(pods[i+2].nextCheckPointId != nextCheckPointId2){
-         pods[i+2].checkpointsPassed += 1;
-       }
-       pods[i+2].nextCheckPointId = nextCheckPointId2;
-       // cerr << "x :" << x2 << "y: " << y2 << endl;
-       // cerr << "vx :" << vx2 << "vy: " << vy2 << endl;
-       // cerr << "next check point: " << nextCheckPointId2 << endl;
-   }
  }
  void ConvertSolutionToOutput(Solution& solution, std::vector<Pod> pods){
+   std::vector<Movement> m = solution[0];
    for (int i=0; i<2; i++)
    {
-       const Pod& p = pods[i];
-       const Movement& mov = i==0? solution.pod1 : solution.pod2;
+       Pod& p = pods[i];
+       Movement& mov = m[i];
 
        // generate coordinates from the rotation
-       const float angle = (p.angle + mov.rotation) % 360;
-       const float angleRad = angle * PI / 180.f;
+       float angle = ((int) (p.angle + mov.rotation)) % 360;
+       float angleRad = angle * PI / 180.f;
 
-       constexpr float targetDistance = 10000.f; // compute the target arbitrarily far enough, to avoid rounding errors
-       const Vector2 direction{ targetDistance*cos(angleRad),targetDistance*sin(angleRad) };
-       const Vector2 target = p.position + direction;
+       float targetDistance = 10000.f; // compute the target arbitrarily far enough, to avoid rounding errors
+       Point direction{ targetDistance*cos(angleRad),targetDistance*sin(angleRad) };
+       Point target = p.position + direction;
 
        cout << round(target.x) << " " << round(target.y) << " ";
 
        if (mov.shield)
            cout << "SHIELD";
+           //p.shieldActive  = false;
        else if (mov.boost)
            cout << "BOOST";
+           //p.boostActive = false;
        else
            cout << mov.thrust;
 
@@ -506,6 +478,62 @@ public:
 
    }
  }
+class Simulation{
+public:
+  std::vector<Solution> solutions;
+  int simulationTurns=4;
+  int solutionNumber = 6;
+
+  Simulation(){
+    solutions.resize(solutionNumber);
+    InitSimulation();
+  }
+  Simulation(int solutionNumber, int simulationTurns){
+    this->solutionNumber = solutionNumber;
+    this->simulationTurns = simulationTurns;
+    solutions.resize(solutionNumber);
+    InitSimulation();
+  }
+
+  void InitSimulation(){
+    for (int s=0; s<solutionNumber; s++){
+      for (int m=0; m<simulationTurns; m++){
+        for (int i=0; i<2; i++){
+          this->solutions[s][m][i].Randomize();
+        }
+      }
+    }
+  }
+
+  void UpdateNextTurn(int s){
+      for(int i=1;i<simulationTurns;i++){
+        for(int j=0;j<2;j++){
+          this->solutions[s][i-1][j] = this->solutions[s][i][j];
+          if(i==simulationTurns-1){
+            this->solutions[s][i][j].Randomize();
+          }
+        }
+      }
+  }
+
+  Solution& simulate(std::vector<Pod>& pods, std::vector<Point> checkpoints, int allCheckpoints){
+    for(int i=0; i<solutionNumber;i++){
+      Solution& s = this->solutions[i];
+      UpdateNextTurn(i);
+      vector<Pod> podsCopy = pods;
+      for(int j=0;j<simulationTurns;j++){
+        PlayOneTurn(podsCopy, checkpoints, allCheckpoints, s.podsMovement[j]);
+      }
+      int score = EvaluateScore(podsCopy, checkpoints, allCheckpoints);
+      s.score = score;
+    }
+    std::sort( this->solutions.begin(), this->solutions.end(),
+               [](const Solution& a, const Solution& b) { return a.score > b.score; }
+             );
+    return this->solutions[0];
+  }
+};
+
 int main()
 {
     vector<Point> checkpoints;
@@ -525,7 +553,7 @@ int main()
     vector<Pod> pods;
     pods.reserve(4);
     Simulation sim = Simulation();
-
+    int step = 0;
     // game loop
     while (1) {
       // init value ->
@@ -534,9 +562,16 @@ int main()
       // evaluate solution ->
       // find the best solution ->
       // convert solution to output
+
         UpdateInput(pods);
-        Solution sol = sim.simulate(pods, checkpoints, allCheckpoints);
+        if(step==0){
+          for(int i =0; i<4;i++){
+            pods[i].InitValue(checkpoints, maxDistance);
+          }
+        }
+        Solution& sol = sim.simulate(pods, checkpoints, allCheckpoints);
         ConvertSolutionToOutput(sol, pods);
+        step ++;
 
 
     }
