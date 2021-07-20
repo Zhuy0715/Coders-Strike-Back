@@ -18,11 +18,22 @@ using namespace std;
 #define SlowAngle 90
 #define SlowRadius 4*600
 #define maxRotation 18
+#define simulationSteps 4;
 
 /**
  * Auto-generated code below aims at helping you parse
  * the standard input according to the problem statement.
  **/
+  inline int fastrand()
+ {
+     static unsigned int g_seed = 100;
+     g_seed = (214013*g_seed+2531011);
+     return (g_seed>>16)&0x7FFF;
+ }
+ inline int rand(int a, int b)
+ {
+     return (fastrand() % (b-a)) + a;
+ }
  class Point {
  public:
  	float x, y;
@@ -239,39 +250,39 @@ using namespace std;
    }
 
  };
-class Movement{
-public:
+struct Movement{
   float rotation;
   float thrust;
   bool shield;
   bool boost;
-
-  Movement(float rotation = 0, float thrust = 100, bool shield = false, bool boost = false){
-    this->rotation = rotation;
-    this->thrust = thrust;
-    this->shield = shield;
-    this->boost =boost;
-  }
-
-  void Randomize(){
-    int i = rand()%12;
+};
+class Step
+{
+    private:
+        vector<Movement> moves = vector<Movement>(2);
+    public:
+        Movement& operator[](size_t m){ return moves[m]; }
+};
+void Randomize(Movement& m){
+    cerr << "begin random" << endl;
+    int i = rand(0,12);
+    cerr << i << endl;
     if(i<5){
-      this->rotation = -maxRotation + rand()%(2*maxRotation);
+      m.rotation = -maxRotation + rand(-maxRotation, maxRotation);
     }else if(i<10){
-      this->thrust = rand()%100;
+      m.thrust = rand(0,100);
     }else if(i<11){
-      this->shield = !this->shield;
+      m.shield = !m.shield;
     }else{
-      this->boost = !this->boost;
+      m.boost = !m.boost;
     }
   }
 
-};
-struct Solution{
-  std::vector<std::vector<Movement>> podsMovement;
+class Solution{
+public:
+  std::vector<Step> podsMovement = vector<Step>(4);
   int score = 0;
-
-  std::vector<Movement>& operator[](size_t m)   { return podsMovement[m]; } //0<=m<2
+  Step& operator[](size_t t){ return podsMovement[t]; }
 };
 float CollisionTime(vector<Pod>& pods, float currentTime, float maxTime, int& indexi, int& indexj){
    float minTime = maxTime - currentTime;
@@ -317,14 +328,14 @@ void Rebound(Pod& pod1, Pod& pod2){
    pod1.speed +=  vp * (-impulse/pod1.mass);
    pod2.speed +=  vp * (impulse/pod2.mass);
  }
- void Rotate(std::vector<Pod> pods, std::vector<Movement> m){
+ void Rotate(std::vector<Pod> pods, Step& m){
    for (int i=0; i<2; i++)
    {
      pods[i].angle = ((int)(pods[i].angle + m[i].rotation))%360;
    }
  }
 
- void Accelerate(std::vector<Pod> pods, std::vector<Movement> m){
+ void Accelerate(std::vector<Pod> pods, Step& m){
    for (int i=0; i<2; i++)
    {
      if(!m[i].shield || !pods[i].shieldActive){
@@ -375,7 +386,7 @@ void Rebound(Pod& pod1, Pod& pod2){
 
  }
 
-void PlayOneTurn(vector<Pod>& pods, vector<Point>& checkpoints, int checkpointCount, std::vector<Movement> Movement){
+void PlayOneStep(vector<Pod>& pods, vector<Point>& checkpoints, int checkpointCount, Step& Movement){
     //rotate
     Rotate(pods, Movement);
     //accurate
@@ -448,7 +459,7 @@ void PlayOneTurn(vector<Pod>& pods, vector<Point>& checkpoints, int checkpointCo
    }
  }
  void ConvertSolutionToOutput(Solution& solution, std::vector<Pod> pods){
-   std::vector<Movement> m = solution[0];
+   Step m = solution[0];
    for (int i=0; i<2; i++)
    {
        Pod& p = pods[i];
@@ -481,36 +492,37 @@ void PlayOneTurn(vector<Pod>& pods, vector<Point>& checkpoints, int checkpointCo
 class Simulation{
 public:
   std::vector<Solution> solutions;
-  int simulationTurns=4;
   int solutionNumber = 6;
 
   Simulation(){
     solutions.resize(solutionNumber);
     InitSimulation();
   }
-  Simulation(int solutionNumber, int simulationTurns){
+  Simulation(int solutionNumber){
     this->solutionNumber = solutionNumber;
-    this->simulationTurns = simulationTurns;
     solutions.resize(solutionNumber);
     InitSimulation();
   }
 
   void InitSimulation(){
+      cerr << "begin init simulation" << endl;
     for (int s=0; s<solutionNumber; s++){
-      for (int m=0; m<simulationTurns; m++){
+      for (int m=0; m<simulationSteps; m++){
         for (int i=0; i<2; i++){
-          this->solutions[s][m][i].Randomize();
+            cerr << s << m << i << endl;
+            Randomize(solutions[s][m][i]);
+
         }
       }
     }
   }
 
-  void UpdateNextTurn(int s){
-      for(int i=1;i<simulationTurns;i++){
+  void UpdateNextStep(int s){
+      for(int i=1;i<simulationSteps;i++){
         for(int j=0;j<2;j++){
           this->solutions[s][i-1][j] = this->solutions[s][i][j];
-          if(i==simulationTurns-1){
-            this->solutions[s][i][j].Randomize();
+          if(i==simulationSteps-1){
+            Randomize(solutions[s][i][j]);
           }
         }
       }
@@ -519,10 +531,10 @@ public:
   Solution& simulate(std::vector<Pod>& pods, std::vector<Point> checkpoints, int allCheckpoints){
     for(int i=0; i<solutionNumber;i++){
       Solution& s = this->solutions[i];
-      UpdateNextTurn(i);
+      UpdateNextStep(i);
       vector<Pod> podsCopy = pods;
-      for(int j=0;j<simulationTurns;j++){
-        PlayOneTurn(podsCopy, checkpoints, allCheckpoints, s.podsMovement[j]);
+      for(int j=0;j<simulationSteps;j++){
+        PlayOneStep(podsCopy, checkpoints, allCheckpoints, s.podsMovement[j]);
       }
       int score = EvaluateScore(podsCopy, checkpoints, allCheckpoints);
       s.score = score;
@@ -536,6 +548,7 @@ public:
 
 int main()
 {
+    cerr << "begin" << endl;
     vector<Point> checkpoints;
     int laps;
     cin >> laps; cin.ignore();
@@ -550,10 +563,11 @@ int main()
         checkpoints.push_back(newPoint);
     }
     double maxDistance = getMaxDistancePoint(checkpoints);
-    vector<Pod> pods;
-    pods.reserve(4);
+    cerr << "init checkpoints" << endl;
+    vector<Pod> pods(4);
     Simulation sim = Simulation();
     int step = 0;
+    cerr << "init finish" << endl;
     // game loop
     while (1) {
       // init value ->
