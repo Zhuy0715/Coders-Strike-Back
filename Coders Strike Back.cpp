@@ -9,6 +9,7 @@
 
 
 using namespace std;
+using namespace std::chrono;
 
 #define SIMULATIONSTEPS 4
 #define SOLUTIONCOUNT 6
@@ -20,8 +21,8 @@ using namespace std;
 #define podRadius 400.0
 #define minImpulse 120.0
 
-#define timeoutFirstTurn 500
-#define timeout 75
+#define maxTimeFirstStep 500
+#define maxTimeEachStep 75
 
 #define PI 3.14159265
 #define eps 0.000001
@@ -267,9 +268,12 @@ class Simulation
             allCheckpoints = laps*checkpointCount;
         }
 
-        Solution& simulate(const vector<Pod>& pods)
+        Solution& simulate(const vector<Pod>& pods, int time)
         {
-
+          auto start = high_resolution_clock::now();
+          auto now = high_resolution_clock::now();
+          auto duration = duration_cast<milliseconds>(now -start);
+          bool timeout = (duration.count() >= time);
             for (int i=0; i<SOLUTIONCOUNT; ++i)
             {
                 Solution& s = solutions[i];
@@ -281,9 +285,29 @@ class Simulation
                 }
                 s.score = EvaluateScore(podsCopy);
             }
+
+          while(!timeout){
+            for (int i=0; i<SOLUTIONCOUNT; ++i)
+            {
+                Solution& s = solutions[i+SOLUTIONCOUNT];
+                s = solutions[i];
+                UpdateRandomStep(s);
+                vector<Pod> podsCopy = pods;
+                for (int i=0; i<SIMULATIONSTEPS; i++)
+                {
+                    PlayOneStep(podsCopy, s[i]);
+                }
+                s.score = EvaluateScore(podsCopy);
+            }
+
             std::sort( solutions.begin(), solutions.end(),
                        [](Solution& a, Solution& b) { return a.score > b.score; }
                      );
+
+             now = high_resolution_clock::now();
+             duration = duration_cast<milliseconds>(now -start);
+             timeout = (duration.count() >= time);
+          }
 
             return solutions[0];
         }
@@ -408,18 +432,42 @@ class Simulation
             }
         }
 
-        void Randomize(Movement& m) const
-        {
-          int i = rand(0,12);
-          //cerr << i << endl;
-          //if(i<5){
-            m.rotation = -maxRotation + rand(-maxRotation, maxRotation);
-          //}else if(i<10){
-            m.thrust = rand(0,100);
-          if(i<6){
-            m.shield = !m.shield;
+        void Randomize(Movement& m, bool random = false) const{
+          if(!random){
+            int r = rand(-2*maxRotation, 3*maxRotation);
+            if (r > 2*maxRotation)
+                m.rotation = 0;
+            else
+                m.rotation = clamp(r, -maxRotation, maxRotation);
+            r = rand(-0.5f * maxThrust, 2*maxThrust);
+            m.thrust = clamp(r, 0, maxThrust);
+            if((rand(0,10)>6)){
+              m.shield = !m.shield;
+            }
+            if((rand(0,10)>6)){
+              m.boost = !m.boost;
+            }
           }else{
-            m.boost = !m.boost;
+            int i = rand(0,12);
+            //cerr << i << endl;
+            if(i<5){
+              int r = rand(-2*maxRotation, 3*maxRotation);
+              if (r > 2*maxRotation)
+                  m.rotation = 0;
+              else
+                  m.rotation = clamp(r, -maxRotation, maxRotation);
+            }else if(i<10){
+              int r = rand(-0.5f * maxThrust, 2*maxThrust);
+              m.thrust = clamp(r, 0, maxThrust);
+            }else if(i<11){
+              if((rand(0,10)>6)){
+              m.shield = !m.shield;
+            }
+            }else{
+              if((rand(0,10)>6)){
+              m.boost = !m.boost;
+            }
+            }
           }
         }
 
@@ -438,9 +486,9 @@ class Simulation
 
         void UpdateRandomStep(Solution& s) const
         {
-            int k = rand(0, 2*SIMULATIONSTEPS);
-            Movement& m = s[k/2][k%2];
-            Randomize(m);
+            int k = rand(0, SIMULATIONSTEPS);
+            Movement& m = s[k][k%2];
+            Randomize(m,true);
         }
 
         int ComputeScore(Solution& sol, vector<Pod>& pods) const
@@ -628,7 +676,10 @@ int main()
                 InitAngle(pods[i],simulation.Checkpoints()[0]);
         }
 
-        Solution& s = simulation.simulate(pods);
+        int availableTime = (step==0) ? maxTimeFirstStep : maxTimeEachStep;
+        float timeCoefficient = 0.95;
+
+        Solution& s = simulation.simulate(pods, timeCoefficient*availableTime);
         ConvertSolutionToOutput(s, pods);
         UpdatePodsStatus(s, pods);
 
