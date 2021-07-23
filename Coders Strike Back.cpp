@@ -5,7 +5,6 @@
 #include <math.h>
 #include <string>
 #include <vector>
-#include <float.h>
 
 
 using namespace std;
@@ -15,7 +14,6 @@ using namespace std::chrono;
 #define SOLUTIONCOUNT 6
 
 #define maxThrust 100
-#define boostThrust 650
 #define maxRotation 18
 #define checkpointRadius 600.0
 #define podRadius 400.0
@@ -491,22 +489,13 @@ class Simulation
             Randomize(m,true);
         }
 
-        int ComputeScore(Solution& sol, vector<Pod>& pods) const
-        {
-            vector<Pod> podsCopy = pods;
-            for (int i=0; i<SIMULATIONSTEPS; i++)
-            {
-                PlayOneStep(pods, sol[i]);
-            }
-            sol.score = EvaluateScore(podsCopy);
-            return sol.score;
-        }
         int distanceScore(Pod& p) const
         {
           int coefficient = 20000;
           int distance = p.position.dist(checkpoints[p.nextCheckPointId]);
           return coefficient*p.checkpointsPassed - distance;
         }
+
         int EvaluateScore(vector<Pod> pods) const{
             for (Pod& p : pods)
                 p.score = distanceScore(p);
@@ -535,8 +524,17 @@ class Simulation
 
         float CollisionTime(Pod& p1, Pod& p2) const
         {
+          // we want p2 position - p1 position < radius of pod
+          //We want also after moving forward, p2 position - p1 position < radius of pod
+          //new p2.position = p2.position + p2.spped*time
+          //therefore (p2 position - p1 position) + time*(p2.spped - p1.speed) < 2*radius of pod
             Point distance = p2.position - p1.position;
             Point differenceSpeed = (p2.speed - p1.speed);
+
+            //therfore distance + time*differenceSpeed < 2*Radius
+            //(distance + time*differenceSpeed)^2 < 4*Radius^2
+            // differenceSpeed^2 * time^2 + 2*differenceSpeed*distance*time + distance^2 < 4*Radius^2
+            // a = differenceSpeed^2, b = 2*differenceSpeed*distance, c = 4*Radius^2 - distance^2
 
             const float a = differenceSpeed.dot();
             if (a < eps)
@@ -640,10 +638,7 @@ void ConvertSolutionToOutput(Solution& solution, vector<Pod>& pods)
 
 void InitAngle(Pod& p, Point target)
 {
-    // int nextCheckpointX = checkpoints[this->nextCheckPointId].x;
-    // int nextCheckpointY = checkpoints[this->nextCheckPointId].y;
-    // Point target(nextCheckpointX,nextCheckpointY);
-
+  // we want the pod turn towards directly to the first checkpoint
     Point destination = target - p.position;
     float rotation = atan2(destination.y, destination.x) *180/PI;
     if(rotation < 0){
